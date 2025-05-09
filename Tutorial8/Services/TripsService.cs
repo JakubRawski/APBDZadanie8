@@ -100,5 +100,51 @@ public class TripsService(IConfiguration config) : ITripsService
         return (int?)await cmd.ExecuteScalarAsync();
     }
 
-    
+    public async Task<string> RegisterClientToTrip(int clientId, int tripId)
+    {
+        using var conn = new SqlConnection(_connectionString);
+        await conn.OpenAsync();
+
+        var checkClient = new SqlCommand("SELECT COUNT(*) FROM Client WHERE IdClient = @id", conn);
+        checkClient.Parameters.AddWithValue("@id", clientId);
+        if ((int)await checkClient.ExecuteScalarAsync() == 0) return "ClientNotFound";
+
+        var checkTrip = new SqlCommand("SELECT MaxPeople FROM Trip WHERE IdTrip = @id", conn);
+        checkTrip.Parameters.AddWithValue("@id", tripId);
+        var maxPeople = await checkTrip.ExecuteScalarAsync();
+        if (maxPeople == null) return "TripNotFound";
+
+        var countCmd = new SqlCommand("SELECT COUNT(*) FROM Client_Trip WHERE IdTrip = @id", conn);
+        countCmd.Parameters.AddWithValue("@id", tripId);
+        int current = (int)await countCmd.ExecuteScalarAsync();
+        if (current >= (int)maxPeople) return "Full";
+
+        var insertCmd = new SqlCommand(@"
+            INSERT INTO Client_Trip (IdClient, IdTrip, RegisteredAt)
+            VALUES (@clientId, @tripId, @regAt)", conn);
+        insertCmd.Parameters.AddWithValue("@clientId", clientId);
+        insertCmd.Parameters.AddWithValue("@tripId", tripId);
+        insertCmd.Parameters.AddWithValue("@regAt", DateTime.Now);
+
+        await insertCmd.ExecuteNonQueryAsync();
+        return "Success";
+    }
+
+    public async Task<string> RemoveClientTrip(int clientId, int tripId)
+    {
+        using var conn = new SqlConnection(_connectionString);
+        await conn.OpenAsync();
+
+        var checkCmd = new SqlCommand("SELECT COUNT(*) FROM Client_Trip WHERE IdClient = @cid AND IdTrip = @tid", conn);
+        checkCmd.Parameters.AddWithValue("@cid", clientId);
+        checkCmd.Parameters.AddWithValue("@tid", tripId);
+        if ((int)await checkCmd.ExecuteScalarAsync() == 0) return "NotRegistered";
+
+        var deleteCmd = new SqlCommand("DELETE FROM Client_Trip WHERE IdClient = @cid AND IdTrip = @tid", conn);
+        deleteCmd.Parameters.AddWithValue("@cid", clientId);
+        deleteCmd.Parameters.AddWithValue("@tid", tripId);
+        await deleteCmd.ExecuteNonQueryAsync();
+
+        return "Success";
+    }
 }
