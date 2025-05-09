@@ -75,5 +75,30 @@ public class TripsService(IConfiguration config) : ITripsService
         return tripDict.Values.ToList();
     }
 
+    public async Task<int?> AddClient(ClientDTO client)
+    {
+        if (string.IsNullOrWhiteSpace(client.FirstName) ||
+            string.IsNullOrWhiteSpace(client.LastName) ||
+            string.IsNullOrWhiteSpace(client.Email) ||
+            string.IsNullOrWhiteSpace(client.Telephone) ||
+            string.IsNullOrWhiteSpace(client.Pesel))
+            return null;
+
+        using var conn = new SqlConnection(_connectionString);
+        await conn.OpenAsync();
+
+        var cmd = new SqlCommand(@"
+            INSERT INTO Client (FirstName, LastName, Email, Telephone, Pesel)
+            OUTPUT INSERTED.IdClient
+            VALUES (@FirstName, @LastName, @Email, @Telephone, @Pesel)", conn);
+        cmd.Parameters.AddWithValue("@FirstName", client.FirstName);
+        cmd.Parameters.AddWithValue("@LastName", client.LastName);
+        cmd.Parameters.AddWithValue("@Email", client.Email);
+        cmd.Parameters.AddWithValue("@Telephone", client.Telephone);
+        cmd.Parameters.AddWithValue("@Pesel", client.Pesel);
+
+        return (int?)await cmd.ExecuteScalarAsync();
+    }
+
     
 }
